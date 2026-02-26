@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkyCast - Single Day Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&family=Montserrat:wght@700&display=swap" rel="stylesheet">
+    <style>
+        :root { --glass: rgba(255, 255, 255, 0.9); --temp: #f43f5e; --humid: #0ea5e9; --vpd: #f59e0b; --rain: #10b981; --text-dark: #1e293b; --primary: #6366f1; }
+        body { font-family: 'Sarabun', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); background-attachment: fixed; margin: 0; padding: 20px; color: var(--text-dark); display: flex; justify-content: center; }
+        .cloud-nav-btn { position: fixed; top: 20px; right: 20px; width: 60px; height: 60px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1000; border: none; }
+        .cloud-nav-btn:hover { transform: scale(1.1) translateY(-2px); }
+        .cloud-nav-btn svg { width: 35px; height: 35px; fill: var(--primary); }
+        .app-container { max-width: 1000px; width: 100%; background: var(--glass); backdrop-filter: blur(10px); border-radius: 30px; padding: 30px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); margin-top: 20px; }
+        header { text-align: center; margin-bottom: 25px; }
+        header h1 { font-family: 'Montserrat', sans-serif; margin: 0; color: #4f46e5; }
+        .config-panel { display: flex; flex-wrap: wrap; gap: 15px; background: rgba(255, 255, 255, 0.5); padding: 20px; border-radius: 20px; margin-bottom: 25px; border: 1px solid white; align-items: flex-end; justify-content: center; }
+        .input-group { display: flex; flex-direction: column; gap: 5px; }
+        label { font-weight: 600; font-size: 13px; color: #4b5563; }
+        input { padding: 10px; border-radius: 10px; border: 1px solid #cbd5e1; outline: none; }
+        .btn-analyze { background: #6366f1; color: white; border: none; padding: 10px 25px; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.3s; height: 42px; }
+        .stats-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .stat-box { background: white; padding: 15px; border-radius: 15px; text-align: center; border-bottom: 4px solid #ddd; }
+        .stat-box.t { border-color: var(--temp); } .stat-box.h { border-color: var(--humid); } .stat-box.v { border-color: var(--vpd); } .stat-box.r { border-color: var(--rain); }
+        .stat-label { font-size: 12px; color: #64748b; font-weight: 600; } .stat-value { font-size: 20px; font-weight: 700; display: block; margin-top: 5px; }
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+        .chart-card { background: white; border-radius: 20px; padding: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); height: 250px; }
+    </style>
+</head>
+<body>
+
+<button class="cloud-nav-btn" onclick="navigateToOtherPage()" title="ไปที่หน้าข้อมูลรายชั่วโมง">
+    <svg viewBox="0 0 24 24"><path d="M17.5,19c-3.037,0-5.5-2.463-5.5-5.5c0-0.101,0.005-0.2,0.013-0.298C11.531,13.109,11.029,13,10.5,13 c-2.485,0-4.5,2.015-4.5,4.5c0,2.485,2.015,4.5,4.5,4.5H17.5c2.485,0,4.5-2.015,4.5-4.5S19.985,13,17.5,13 c-0.133,0-0.263,0.009-0.392,0.023C16.541,10.686,14.47,9,12,9c-0.24,0-0.475,0.017-0.704,0.05C10.229,6.074,7.362,4,4,4 c-1.105,0-2,0.895-2,2c0,0.407,0.122,0.785,0.33,1.1c-0.21,0.518-0.33,1.087-0.33,1.688c0,2.327,1.761,4.24,4.032,4.475 C6.011,13.364,6,13.431,6,13.5C6,16.537,8.463,19,11.5,19H17.5z"/></svg>
+</button>
+
+<div class="app-container">
+    <header><h1>Climate Daily Summary</h1><p id="displayDate">กรุณาเลือกวันที่เพื่อดูข้อมูล</p></header>
+    <div class="config-panel">
+        <div class="input-group"><label>1. นำเข้าไฟล์ (.html)</label><input type="file" id="fileInput" accept=".html"></div>
+        <div class="input-group"><label>2. เลือกวันที่</label><input type="date" id="targetDate"></div>
+        <button class="btn-analyze" onclick="processDailyData()">แสดงผล</button>
+    </div>
+    <div class="stats-summary">
+        <div class="stat-box t"><span class="stat-label">ค่าเฉลี่ยอุณหภูมิ(อากาศ)</span><span id="v-temp" class="stat-value">-</span></div>
+        <div class="stat-box h"><span class="stat-label">ค่าเฉลี่ยความชื่น(ดิน)</span><span id="v-humid" class="stat-value">-</span></div>
+        <div class="stat-box v"><span class="stat-label">ค่าเฉลี่ย(ค่าความขาดแคลนความดันไอ)</span><span id="v-vpd" class="stat-value">-</span></div>
+        <div class="stat-box r"><span class="stat-label">ค่าเฉลี่ย(ปริมาณฝน)</span><span id="v-rain" class="stat-value">-</span></div>
+    </div>
+    <div class="charts-grid">
+        <div class="chart-card"><canvas id="chartTemp"></canvas></div>
+        <div class="chart-card"><canvas id="chartHumid"></canvas></div>
+        <div class="chart-card"><canvas id="chartVpd"></canvas></div>
+        <div class="chart-card"><canvas id="chartRain"></canvas></div>
+    </div>
+</div>
+
+<script>
+let db = [];
+let charts = {};
+
+// แก้ไขเพิ่มตรงนี้: ให้โหลดข้อมูลอัตโนมัติเมื่อกดกลับมาจากหน้า 2
+window.onload = function() {
+    const savedData = localStorage.getItem('sharedWeatherData');
+    const savedDate = localStorage.getItem('selectedTargetDate');
+    if (savedData) {
+        parseData(savedData); 
+        if (savedDate) {
+            document.getElementById('targetDate').value = savedDate;
+            processDailyData(); 
+        }
+    }
+};
+
+function navigateToOtherPage() {
+    window.location.href = "new1.html"; 
+}
+
+document.getElementById('fileInput').addEventListener('change', function(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(event){
+        const rawContent = event.target.result;
+        localStorage.setItem('sharedWeatherData', rawContent);
+        parseData(rawContent);
+        alert("โหลดข้อมูลสำเร็จ!");
+    };
+    reader.readAsText(file);
+});
+
+function parseData(content) {
+    const doc = new DOMParser().parseFromString(content,'text/html');
+    const rows = doc.querySelectorAll('tr');
+    db = [];
+    rows.forEach(tr => {
+        const tds = tr.querySelectorAll('td');
+        if (tds.length >= 5 && /^\d{4}-\d{2}-\d{2}/.test(tds[0].innerText)) {
+            db.push({
+                date: tds[0].innerText.trim().split(' ')[0],
+                temp: parseFloat(tds[1].innerText) || 0,
+                vpd: parseFloat(tds[2].innerText) || 0,
+                humid: parseFloat(tds[3].innerText) || 0,
+                rain: parseFloat(tds[4].innerText) || 0
+            });
+        }
+    });
+}
+
+function processDailyData(){
+    const target = document.getElementById('targetDate').value;
+    if(!target) return alert("กรุณาเลือกวันที่");
+    if(db.length === 0) return;
+
+    localStorage.setItem('selectedTargetDate', target); // บันทึกวันที่ล่าสุด
+
+    const filtered = db.filter(d => d.date === target);
+    if(filtered.length === 0) return alert("ไม่พบข้อมูลวันที่ " + target);
+
+    const avgT = (filtered.reduce((a, b) => a + b.temp, 0) / filtered.length).toFixed(1);
+    const avgH = (filtered.reduce((a, b) => a + b.humid, 0) / filtered.length).toFixed(1);
+    const avgV = (filtered.reduce((a, b) => a + b.vpd, 0) / filtered.length).toFixed(2);
+    const sumR = (filtered.reduce((a, b) => a + b.rain, 0)).toFixed(1);
+
+    document.getElementById('displayDate').innerText = "ข้อมูลประจำวันที่: " + target;
+    document.getElementById('v-temp').innerText = avgT + " °C";
+    document.getElementById('v-humid').innerText = avgH + " %RH";
+    document.getElementById('v-vpd').innerText = avgV + " kPa";
+    document.getElementById('v-rain').innerText = sumR + " mm";
+
+    renderSingleBar('chartTemp', 'Temp (°C)', avgT, '#f43f5e');
+    renderSingleBar('chartHumid', 'Humid (%)', avgH, '#0ea5e9');
+    renderSingleBar('chartVpd', 'VPD (kPa)', avgV, '#f59e0b');
+    renderSingleBar('chartRain', 'Rain (mm)', sumR, '#10b981');
+}
+
+function renderSingleBar(canvasId, label, value, color){
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    if(charts[canvasId]) charts[canvasId].destroy();
+    charts[canvasId] = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: [label], datasets: [{ data: [value], backgroundColor: color, borderRadius: 10, barThickness: 60 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } }
+    });
+}
+</script>
+</body>
+</html>
