@@ -1,10 +1,8 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>Climate Daily Summary</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -12,157 +10,145 @@
 <style>
 
 body{
-font-family:sans-serif;
-background:linear-gradient(135deg,#667eea,#764ba2);
+font-family: Arial;
+background:#e9edf5;
 margin:0;
-padding:30px;
-display:flex;
-justify-content:center;
+padding:40px;
 }
 
-.app{
-width:900px;
+.container{
 background:white;
-padding:30px;
-border-radius:20px;
-box-shadow:0 10px 25px rgba(0,0,0,0.1);
+padding:25px;
+border-radius:12px;
+max-width:1100px;
+margin:auto;
+box-shadow:0 0 10px rgba(0,0,0,0.1);
 }
 
 h1{
-margin-top:0;
-text-align:center;
+color:#3b5cff;
+margin-bottom:10px;
 }
 
-#dateRange{
-font-weight:bold;
-color:#4f46e5;
+.info{
+margin-bottom:20px;
+font-size:14px;
+color:#444;
 }
 
-.panel{
-margin-top:20px;
-}
-
-.stats{
+.cards{
 display:grid;
 grid-template-columns:repeat(4,1fr);
 gap:15px;
-margin-top:20px;
+margin-bottom:25px;
 }
 
-.box{
-background:#f1f5f9;
+.card{
+background:#f2f4f8;
 padding:15px;
-border-radius:12px;
+border-radius:10px;
 text-align:center;
 }
 
-.value{
+.card h3{
+margin:0;
+font-size:14px;
+color:#555;
+}
+
+.card p{
 font-size:20px;
+margin:5px 0 0;
 font-weight:bold;
 }
 
 .charts{
 display:grid;
-grid-template-columns:repeat(2,1fr);
-gap:20px;
-margin-top:30px;
+grid-template-columns:1fr 1fr;
+gap:25px;
 }
 
-.chart{
-height:160px;
-}
-
-.hourBtn{
-margin-top:25px;
-display:flex;
-justify-content:center;
-}
-
-.hourBtn button{
-padding:10px 20px;
-border:none;
+canvas{
+background:#fff;
+padding:10px;
 border-radius:8px;
-background:#0ea5e9;
+}
+
+button{
+margin-top:20px;
+padding:10px 18px;
+border:none;
+background:#3b5cff;
 color:white;
+border-radius:6px;
 cursor:pointer;
 }
 
-</style>
+button:hover{
+background:#2c47d9;
+}
 
+</style>
 </head>
 
 <body>
 
-<div class="app">
+<div class="container">
 
 <h1>Climate Daily Summary</h1>
 
-<p id="dateRange">กำลังโหลดข้อมูล...</p>
-
-<div class="panel">
-
-<label>เลือกวันที่</label>
-
-<input type="date" id="targetDate">
-
-<button onclick="processDailyData()">แสดงผล</button>
-
+<div class="info">
+ช่วงข้อมูลทั้งหมด : <span id="range">กำลังโหลด...</span>
 </div>
 
-<div class="stats">
+<input type="date" id="datePicker">
 
-<div class="box">
-<div>อุณหภูมิเฉลี่ย</div>
-<div id="temp" class="value">-</div>
+<div class="cards">
+
+<div class="card">
+<h3>อุณหภูมิเฉลี่ย</h3>
+<p id="temp">--</p>
 </div>
 
-<div class="box">
-<div>ความชื้นเฉลี่ย</div>
-<div id="humid" class="value">-</div>
+<div class="card">
+<h3>ความชื้นเฉลี่ย</h3>
+<p id="humid">--</p>
 </div>
 
-<div class="box">
-<div>VPD เฉลี่ย</div>
-<div id="vpd" class="value">-</div>
+<div class="card">
+<h3>VPD เฉลี่ย</h3>
+<p id="vpd">--</p>
 </div>
 
-<div class="box">
-<div>ปริมาณฝนรวม</div>
-<div id="rain" class="value">-</div>
+<div class="card">
+<h3>ปริมาณฝนรวม</h3>
+<p id="rain">--</p>
 </div>
 
 </div>
 
 <div class="charts">
 
-<canvas id="chartTemp" class="chart"></canvas>
-<canvas id="chartHumid" class="chart"></canvas>
-<canvas id="chartVpd" class="chart"></canvas>
-<canvas id="chartRain" class="chart"></canvas>
+<canvas id="chartTemp"></canvas>
+<canvas id="chartHumid"></canvas>
+<canvas id="chartVpd"></canvas>
+<canvas id="chartRain"></canvas>
 
 </div>
 
-<div class="hourBtn">
-<button onclick="location.href='new1.html'">
-ดูข้อมูลรายชั่วโมง
-</button>
-</div>
+<a href="new1.html">
+<button>ดูข้อมูลรายชั่วโมง</button>
+</a>
 
 </div>
 
 <script>
 
 let db=[];
-let charts={};
 
-const files=[
-"data/2023.html",
-"data/2024.html",
-"data/2025.html",
-"data/2026.html"
-];
+async function loadData(){
 
-window.onload=async function(){
+const files=["2023.html","2024.html","2025.html","2026.html"];
 
 for(const file of files){
 
@@ -174,129 +160,128 @@ const text=await res.text();
 parseData(text);
 
 }catch(e){
-
-console.log("โหลดไฟล์ไม่ได้",file);
-
+console.log("โหลดไม่ได้",file);
 }
 
 }
 
-showDateRange();
+init();
 
-};
+}
 
 function parseData(content){
 
-const doc=new DOMParser().parseFromString(content,'text/html');
+const lines=content.split("\n");
 
-const rows=doc.querySelectorAll("tr");
+lines.forEach(line=>{
 
-rows.forEach(tr=>{
+line=line.trim();
 
-const td=tr.querySelectorAll("td");
+if(line.match(/^\\d{4}-\\d{2}-\\d{2}/)){
 
-if(td.length>=5){
-
-const rawDate=td[0].textContent.trim();
-
-if(/^\d{4}-\d{2}-\d{2}/.test(rawDate)){
+const p=line.split(/\\s+/);
 
 db.push({
 
-date:rawDate.substring(0,10),
-temp:parseFloat(td[1].textContent)||0,
-vpd:parseFloat(td[2].textContent)||0,
-humid:parseFloat(td[3].textContent)||0,
-rain:parseFloat(td[4].textContent)||0
+date:p[0],
+time:p[1],
+temp:parseFloat(p[2])||0,
+vpd:parseFloat(p[3])||0,
+humid:parseFloat(p[4])||0,
+rain:parseFloat(p[5])||0
 
 });
 
 }
 
-}
-
 });
 
 }
 
-function showDateRange(){
+let chartTemp,chartHumid,chartVpd,chartRain;
 
-if(db.length===0)return;
+function init(){
 
-const dates=db.map(d=>d.date).sort();
+db.sort((a,b)=> new Date(a.date+" "+a.time)-new Date(b.date+" "+b.time));
 
-const first=dates[0];
-const last=dates[dates.length-1];
+const start=db[0].date;
+const end=db[db.length-1].date;
 
-document.getElementById("targetDate").min=first;
-document.getElementById("targetDate").max=last;
+document.getElementById("range").innerText=start+" ถึง "+end;
 
-document.getElementById("dateRange").innerText =
-"ช่วงข้อมูลทั้งหมด : "+first+" ถึง "+last+
-" (ทั้งหมด "+db.length+" รายการ)";
+document.getElementById("datePicker").value=start;
 
-}
+createCharts();
 
-function processDailyData(){
+updateDay(start);
 
-const date=document.getElementById("targetDate").value;
-
-if(!date){
-alert("กรุณาเลือกวันที่");
-return;
-}
-
-const data=db.filter(d=>d.date===date);
-
-if(data.length===0){
-alert("ไม่พบข้อมูล");
-return;
-}
-
-const avgTemp=(data.reduce((a,b)=>a+b.temp,0)/data.length).toFixed(1);
-const avgHumid=(data.reduce((a,b)=>a+b.humid,0)/data.length).toFixed(1);
-const avgVpd=(data.reduce((a,b)=>a+b.vpd,0)/data.length).toFixed(2);
-const sumRain=(data.reduce((a,b)=>a+b.rain,0)).toFixed(1);
-
-document.getElementById("temp").innerText=avgTemp+" °C";
-document.getElementById("humid").innerText=avgHumid+" %";
-document.getElementById("vpd").innerText=avgVpd+" kPa";
-document.getElementById("rain").innerText=sumRain+" mm";
-
-renderChart("chartTemp","Temperature",avgTemp);
-renderChart("chartHumid","Humidity",avgHumid);
-renderChart("chartVpd","VPD",avgVpd);
-renderChart("chartRain","Rain",sumRain);
+document.getElementById("datePicker").addEventListener("change",e=>{
+updateDay(e.target.value);
+});
 
 }
 
-function renderChart(id,label,value){
+function createCharts(){
 
-const ctx=document.getElementById(id).getContext("2d");
-
-if(charts[id])charts[id].destroy();
-
-charts[id]=new Chart(ctx,{
-
+chartTemp=new Chart(document.getElementById("chartTemp"),{
 type:"bar",
+data:{labels:["Temp"],datasets:[{label:"Temp",data:[0]}]}
+});
 
-data:{
-labels:[label],
-datasets:[{
-data:[value],
-backgroundColor:"#3b82f6"
-}]
-},
+chartHumid=new Chart(document.getElementById("chartHumid"),{
+type:"bar",
+data:{labels:["Humidity"],datasets:[{label:"Humidity",data:[0]}]}
+});
 
-options:{
-responsive:true,
-plugins:{legend:{display:false}},
-scales:{y:{beginAtZero:true}}
-}
+chartVpd=new Chart(document.getElementById("chartVpd"),{
+type:"bar",
+data:{labels:["VPD"],datasets:[{label:"VPD",data:[0]}]}
+});
 
+chartRain=new Chart(document.getElementById("chartRain"),{
+type:"bar",
+data:{labels:["Rain"],datasets:[{label:"Rain",data:[0]}]}
 });
 
 }
+
+function updateDay(date){
+
+const day=db.filter(d=>d.date===date);
+
+if(day.length==0)return;
+
+let t=0,h=0,v=0,r=0;
+
+day.forEach(d=>{
+t+=d.temp;
+h+=d.humid;
+v+=d.vpd;
+r+=d.rain;
+});
+
+t/=day.length;
+h/=day.length;
+v/=day.length;
+
+document.getElementById("temp").innerText=t.toFixed(1)+" °C";
+document.getElementById("humid").innerText=h.toFixed(1)+" %";
+document.getElementById("vpd").innerText=v.toFixed(2)+" kPa";
+document.getElementById("rain").innerText=r.toFixed(1)+" mm";
+
+chartTemp.data.datasets[0].data=[t];
+chartHumid.data.datasets[0].data=[h];
+chartVpd.data.datasets[0].data=[v];
+chartRain.data.datasets[0].data=[r];
+
+chartTemp.update();
+chartHumid.update();
+chartVpd.update();
+chartRain.update();
+
+}
+
+loadData();
 
 </script>
 
