@@ -13,59 +13,63 @@
 
 body{
 font-family:sans-serif;
-background:#544a7d;
+background:#eef2ff;
+margin:0;
+padding:30px;
 display:flex;
 justify-content:center;
-align-items:center;
-min-height:100vh;
-margin:0;
 }
 
-.container{
-background:white;
-padding:25px;
-border-radius:15px;
+.app{
 width:900px;
-box-shadow:0 10px 25px rgba(0,0,0,0.3);
+background:white;
+padding:30px;
+border-radius:20px;
+box-shadow:0 10px 25px rgba(0,0,0,0.1);
 }
 
 h1{
+margin-top:0;
+color:#4f46e5;
+}
+
+#dateRange{
+font-weight:bold;
+color:#4f46e5;
+}
+
+.panel{
+margin-top:20px;
+}
+
+.stats{
+display:grid;
+grid-template-columns:repeat(4,1fr);
+gap:15px;
+margin-top:20px;
+}
+
+.box{
+background:#f8fafc;
+padding:15px;
+border-radius:12px;
 text-align:center;
-margin-bottom:5px;
 }
 
-.info{
-text-align:center;
-margin-bottom:15px;
-font-size:14px;
-color:#555;
+.value{
+font-size:20px;
+font-weight:bold;
 }
 
-.cards{
-display:flex;
-gap:10px;
-margin-top:15px;
+.charts{
+display:grid;
+grid-template-columns:repeat(2,1fr);
+gap:20px;
+margin-top:30px;
 }
 
-.card{
-flex:1;
-background:#eee;
-padding:10px;
-border-radius:10px;
-text-align:center;
-}
-
-.chartBox{
-margin-top:25px;
-}
-
-button{
-background:#2d6cdf;
-color:white;
-border:none;
-padding:6px 12px;
-border-radius:6px;
-cursor:pointer;
+.chart{
+height:250px;
 }
 
 </style>
@@ -74,190 +78,185 @@ cursor:pointer;
 
 <body>
 
-<div class="container">
+<div class="app">
 
-<h1>ข้อมูลสภาพอากาศ</h1>
+<h1>Climate Daily Summary</h1>
 
-<div class="info" id="rangeInfo">
--
-</div>
+<p id="dateRange">กำลังโหลดข้อมูล...</p>
 
-เลือกวันที่
-<input type="date" id="date">
-<button onclick="showData()">แสดงผล</button>
+<div class="panel">
 
-<div class="cards">
+<label>เลือกวันที่</label>
 
-<div class="card">
-อุณหภูมิเฉลี่ย
-<div id="temp">-</div>
-</div>
+<input type="date" id="targetDate">
 
-<div class="card">
-ความชื้นเฉลี่ย
-<div id="hum">-</div>
-</div>
-
-<div class="card">
-VPD เฉลี่ย
-<div id="vpd">-</div>
-</div>
-
-<div class="card">
-ปริมาณฝนรวม
-<div id="rain">-</div>
-</div>
+<button onclick="processDailyData()">แสดงผล</button>
 
 </div>
 
-<div class="chartBox">
-<canvas id="tempChart"></canvas>
+<div class="stats">
+
+<div class="box">
+<div>อุณหภูมิเฉลี่ย</div>
+<div id="temp" class="value">-</div>
 </div>
 
-<div class="chartBox">
-<canvas id="humChart"></canvas>
+<div class="box">
+<div>ความชื้นเฉลี่ย</div>
+<div id="humid" class="value">-</div>
 </div>
 
-<div class="chartBox">
-<canvas id="vpdChart"></canvas>
+<div class="box">
+<div>VPD เฉลี่ย</div>
+<div id="vpd" class="value">-</div>
 </div>
 
-<div class="chartBox">
-<canvas id="rainChart"></canvas>
+<div class="box">
+<div>ปริมาณฝนรวม</div>
+<div id="rain" class="value">-</div>
 </div>
 
-<br>
+</div>
 
-<button onclick="hourPage()">ดูข้อมูลรายชั่วโมง</button>
+<div class="charts">
+
+<canvas id="chartTemp" class="chart"></canvas>
+<canvas id="chartHumid" class="chart"></canvas>
+<canvas id="chartVpd" class="chart"></canvas>
+<canvas id="chartRain" class="chart"></canvas>
+
+</div>
 
 </div>
 
 <script>
 
-let tempChart,humChart,vpdChart,rainChart;
+let db=[];
+let charts={};
 
-async function loadYear(year){
+const files=[
+"data/2023.html",
+"data/2024.html",
+"data/2025.html",
+"data/2026.html"
+];
 
-let res=await fetch(`data/${year}.html`);
-let text=await res.text();
+window.onload=async function(){
 
-let lines=text.split("\n");
+for(const file of files){
 
-let data=[];
+const res=await fetch(file);
+const text=await res.text();
 
-lines.forEach(l=>{
-if(l.includes("-") && l.includes(":")){
-data.push(l.trim());
-}
-});
-
-updateRange(year,data);
-
-return data;
+parseData(text);
 
 }
 
-function updateRange(year,data){
+showDateRange();
 
-let first=data[data.length-1];
-let last=data[0];
+};
 
-let start=first.split(" ")[0];
-let end=last.split(" ")[0];
+function parseData(content){
 
-document.getElementById("rangeInfo").innerHTML=
-`ข้อมูลปี ${year} | ช่วงข้อมูล: ${start} - ${end}`;
+const doc=new DOMParser().parseFromString(content,'text/html');
 
-}
+const rows=doc.querySelectorAll("tr");
 
-async function showData(){
+rows.forEach(tr=>{
 
-let date=document.getElementById("date").value;
-let year=date.substring(0,4);
+const td=tr.querySelectorAll("td");
 
-let data=await loadYear(year);
+if(td.length>=5 && /^\d{4}-\d{2}-\d{2}/.test(td[0].textContent)){
 
-let day=data.filter(d=>d.includes(date));
+db.push({
 
-let temp=0;
-let hum=0;
-let vpd=0;
-let rain=0;
-
-let hours=[];
-let temps=[];
-let hums=[];
-let vpds=[];
-let rains=[];
-
-day.forEach(l=>{
-
-let p=l.split(/\s+/);
-
-let t=parseFloat(p[2]);
-let v=parseFloat(p[3]);
-let h=parseFloat(p[4]);
-let r=parseFloat(p[5]);
-
-temp+=t;
-vpd+=v;
-hum+=h;
-rain+=r;
-
-hours.push(p[1].substring(0,5));
-
-temps.push(t);
-hums.push(h);
-vpds.push(v);
-rains.push(r);
+date:td[0].textContent.split(" ")[0],
+temp:parseFloat(td[1].textContent)||0,
+vpd:parseFloat(td[2].textContent)||0,
+humid:parseFloat(td[3].textContent)||0,
+rain:parseFloat(td[4].textContent)||0
 
 });
 
-let n=day.length;
+}
 
-document.getElementById("temp").innerHTML=(temp/n).toFixed(2)+" °C";
-document.getElementById("hum").innerHTML=(hum/n).toFixed(2)+" %RH";
-document.getElementById("vpd").innerHTML=(vpd/n).toFixed(2);
-document.getElementById("rain").innerHTML=rain.toFixed(2)+" mm";
-
-drawChart("tempChart","Temperature °C",hours,temps);
-drawChart("humChart","Humidity %RH",hours,hums);
-drawChart("vpdChart","VPD",hours,vpds);
-drawChart("rainChart","Rain mm",hours,rains);
+});
 
 }
 
-function drawChart(id,label,x,y){
+function showDateRange(){
 
-let ctx=document.getElementById(id);
+if(db.length===0)return;
 
-if(ctx.chart){
-ctx.chart.destroy();
+const dates=db.map(d=>d.date).sort();
+
+const first=dates[0];
+const last=dates[dates.length-1];
+
+document.getElementById("targetDate").min=first;
+document.getElementById("targetDate").max=last;
+
+document.getElementById("dateRange").innerText=
+"ช่วงข้อมูลทั้งหมด : "+first+" ถึง "+last;
+
 }
 
-ctx.chart=new Chart(ctx,{
-type:"line",
+function processDailyData(){
+
+const date=document.getElementById("targetDate").value;
+
+if(!date){
+alert("กรุณาเลือกวันที่");
+return;
+}
+
+const data=db.filter(d=>d.date===date);
+
+if(data.length===0){
+alert("ไม่พบข้อมูล");
+return;
+}
+
+const avgTemp=(data.reduce((a,b)=>a+b.temp,0)/data.length).toFixed(1);
+const avgHumid=(data.reduce((a,b)=>a+b.humid,0)/data.length).toFixed(1);
+const avgVpd=(data.reduce((a,b)=>a+b.vpd,0)/data.length).toFixed(2);
+const sumRain=(data.reduce((a,b)=>a+b.rain,0)).toFixed(1);
+
+document.getElementById("temp").innerText=avgTemp+" °C";
+document.getElementById("humid").innerText=avgHumid+" %";
+document.getElementById("vpd").innerText=avgVpd+" kPa";
+document.getElementById("rain").innerText=sumRain+" mm";
+
+renderChart("chartTemp","Temp",avgTemp);
+renderChart("chartHumid","Humidity",avgHumid);
+renderChart("chartVpd","VPD",avgVpd);
+renderChart("chartRain","Rain",sumRain);
+
+}
+
+function renderChart(id,label,value){
+
+const ctx=document.getElementById(id).getContext("2d");
+
+if(charts[id])charts[id].destroy();
+
+charts[id]=new Chart(ctx,{
+
+type:"bar",
+
 data:{
-labels:x,
-datasets:[{
-label:label,
-data:y,
-borderWidth:2,
-fill:false
-}]
+labels:[label],
+datasets:[{data:[value]}]
 },
+
 options:{
-responsive:true
+responsive:true,
+plugins:{legend:{display:false}},
+scales:{y:{beginAtZero:true}}
+
 }
+
 });
-
-}
-
-function hourPage(){
-
-let date=document.getElementById("date").value;
-
-window.open(`new1.html?date=${date}`,"_blank");
 
 }
 
