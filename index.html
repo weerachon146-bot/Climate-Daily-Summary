@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -12,7 +13,7 @@
 
 body{
 font-family:sans-serif;
-background:#4a4370;
+background:#544a7d;
 display:flex;
 justify-content:center;
 align-items:center;
@@ -22,10 +23,10 @@ margin:0;
 
 .container{
 background:white;
-padding:30px;
+padding:25px;
 border-radius:15px;
-width:750px;
-box-shadow:0 10px 25px rgba(0,0,0,0.2);
+width:800px;
+box-shadow:0 10px 25px rgba(0,0,0,0.3);
 }
 
 .cards{
@@ -42,23 +43,17 @@ border-radius:10px;
 text-align:center;
 }
 
-button{
-background:#2b6cff;
-color:white;
-border:none;
-padding:6px 12px;
-border-radius:5px;
-cursor:pointer;
-}
-
-.chart{
+.chartBox{
 margin-top:20px;
 }
 
-.year-range{
-margin-top:10px;
-font-size:14px;
-color:#555;
+button{
+background:#2d6cdf;
+color:white;
+border:none;
+padding:5px 12px;
+border-radius:6px;
+cursor:pointer;
 }
 
 </style>
@@ -75,8 +70,6 @@ color:#555;
 <input type="date" id="date">
 
 <button onclick="showData()">แสดงผล</button>
-
-<div class="year-range" id="range"></div>
 
 <div class="cards">
 
@@ -102,7 +95,8 @@ VPD เฉลี่ย
 
 </div>
 
-<div class="chart">
+<!-- กราฟ -->
+<div class="chartBox">
 <canvas id="chart"></canvas>
 </div>
 
@@ -114,14 +108,14 @@ VPD เฉลี่ย
 
 <script>
 
-let chart;
+let chart=null;
 
 async function loadYear(year){
 
-let res = await fetch(`data/${year}.html`);
-let text = await res.text();
+let res=await fetch(`data/${year}.html`);
+let text=await res.text();
 
-let lines = text.split("\n");
+let lines=text.split("\n");
 
 let data=[];
 
@@ -167,13 +161,18 @@ day.forEach(l=>{
 
 let p=l.split(/\s+/);
 
-temp+=parseFloat(p[2]);
-vpd+=parseFloat(p[3]);
-hum+=parseFloat(p[4]);
-rain+=parseFloat(p[5]);
+let t=parseFloat(p[2]);
+let v=parseFloat(p[3]);
+let h=parseFloat(p[4]);
+let r=parseFloat(p[5]);
+
+temp+=t;
+vpd+=v;
+hum+=h;
+rain+=r;
 
 hours.push(p[1].substring(0,5));
-temps.push(parseFloat(p[2]));
+temps.push(t);
 
 });
 
@@ -184,33 +183,36 @@ document.getElementById("hum").innerHTML=(hum/n).toFixed(2)+" %";
 document.getElementById("vpd").innerHTML=(vpd/n).toFixed(2);
 document.getElementById("rain").innerHTML=rain.toFixed(2)+" mm";
 
-document.getElementById("range").innerHTML=
-`ข้อมูลปี ${year} : 1 ม.ค. ${year} - 31 ธ.ค. ${year}`;
-
 drawChart(hours,temps);
 
 }
 
 function drawChart(h,t){
 
-if(chart) chart.destroy();
+let ctx=document.getElementById("chart").getContext("2d");
 
-chart=new Chart(
-document.getElementById("chart"),
-{
+if(chart!=null){
+chart.destroy();
+}
+
+chart=new Chart(ctx,{
 type:"line",
 data:{
 labels:h,
 datasets:[{
-label:"อุณหภูมิ °C",
-data:t
+label:"Temperature °C",
+data:t,
+borderWidth:2,
+fill:false
 }]
 },
 options:{
-responsive:true
+responsive:true,
+plugins:{
+legend:{display:true}
 }
 }
-);
+});
 
 }
 
