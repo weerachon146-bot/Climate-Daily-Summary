@@ -3,59 +3,66 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Climate Daily Summary</title>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
+
 body{
-font-family: Arial, sans-serif;
-background:#4a3f72;
-margin:0;
-padding:0;
+font-family:sans-serif;
+background:#4a4370;
 display:flex;
 justify-content:center;
 align-items:center;
 height:100vh;
+margin:0;
 }
 
 .container{
 background:white;
 padding:30px;
 border-radius:15px;
-width:700px;
-box-shadow:0 5px 15px rgba(0,0,0,0.2);
-}
-
-h2{
-margin-top:0;
-}
-
-input{
-padding:5px;
-}
-
-button{
-padding:6px 12px;
-background:#007bff;
-color:white;
-border:none;
-border-radius:5px;
-cursor:pointer;
+width:750px;
+box-shadow:0 10px 25px rgba(0,0,0,0.2);
 }
 
 .cards{
 display:flex;
 gap:10px;
-margin-top:20px;
+margin-top:15px;
 }
 
 .card{
 flex:1;
-background:#f0f0f0;
-padding:15px;
+background:#eee;
+padding:10px;
 border-radius:10px;
 text-align:center;
 }
+
+button{
+background:#2b6cff;
+color:white;
+border:none;
+padding:6px 12px;
+border-radius:5px;
+cursor:pointer;
+}
+
+.chart{
+margin-top:20px;
+}
+
+.year-range{
+margin-top:10px;
+font-size:14px;
+color:#555;
+}
+
 </style>
+
 </head>
 
 <body>
@@ -66,67 +73,65 @@ text-align:center;
 
 เลือกวันที่
 <input type="date" id="date">
+
 <button onclick="showData()">แสดงผล</button>
 
+<div class="year-range" id="range"></div>
+
 <div class="cards">
+
 <div class="card">
-อุณหภูมิเฉลี่ย<br>
-<span id="temp">-</span>
+อุณหภูมิเฉลี่ย
+<div id="temp">-</div>
 </div>
 
 <div class="card">
-ความชื้นเฉลี่ย<br>
-<span id="hum">-</span>
+ความชื้นเฉลี่ย
+<div id="hum">-</div>
 </div>
 
 <div class="card">
-VPD เฉลี่ย<br>
-<span id="vpd">-</span>
+VPD เฉลี่ย
+<div id="vpd">-</div>
 </div>
 
 <div class="card">
-ปริมาณฝนรวม<br>
-<span id="rain">-</span>
+ปริมาณฝนรวม
+<div id="rain">-</div>
 </div>
+
 </div>
+
+<div class="chart">
+<canvas id="chart"></canvas>
+</div>
+
+<br>
+
+<button onclick="hourPage()">ดูข้อมูลรายชั่วโมง</button>
 
 </div>
 
 <script>
 
-async function loadAllData(){
+let chart;
 
-const files=[
-"data/2023.html",
-"data/2024.html",
-"data/2025.html",
-"data/2026.html"
-];
+async function loadYear(year){
 
-let allData=[];
+let res = await fetch(`data/${year}.html`);
+let text = await res.text();
 
-for(const file of files){
+let lines = text.split("\n");
 
-try{
+let data=[];
 
-let res=await fetch(file);
-let text=await res.text();
-
-let lines=text.split("\n");
-
-lines.forEach(line=>{
-if(line.includes("-") && line.includes(":")){
-allData.push(line.trim());
+lines.forEach(l=>{
+if(l.includes("-") && l.includes(":")){
+data.push(l.trim());
 }
 });
 
-}catch(e){
-console.log("error loading",file);
-}
-
-}
-
-return allData;
+return data;
 
 }
 
@@ -135,15 +140,17 @@ async function showData(){
 let date=document.getElementById("date").value;
 
 if(!date){
-alert("กรุณาเลือกวันที่");
+alert("เลือกวันที่ก่อน");
 return;
 }
 
-let data=await loadAllData();
+let year=date.substring(0,4);
 
-let dayData=data.filter(line=>line.includes(date));
+let data=await loadYear(year);
 
-if(dayData.length==0){
+let day=data.filter(d=>d.includes(date));
+
+if(day.length==0){
 alert("ไม่พบข้อมูล");
 return;
 }
@@ -153,23 +160,70 @@ let hum=0;
 let vpd=0;
 let rain=0;
 
-dayData.forEach(line=>{
+let hours=[];
+let temps=[];
 
-let p=line.split(/\s+/);
+day.forEach(l=>{
+
+let p=l.split(/\s+/);
 
 temp+=parseFloat(p[2]);
 vpd+=parseFloat(p[3]);
 hum+=parseFloat(p[4]);
 rain+=parseFloat(p[5]);
 
+hours.push(p[1].substring(0,5));
+temps.push(parseFloat(p[2]));
+
 });
 
-let n=dayData.length;
+let n=day.length;
 
-document.getElementById("temp").innerText=(temp/n).toFixed(2)+" °C";
-document.getElementById("hum").innerText=(hum/n).toFixed(2)+" %";
-document.getElementById("vpd").innerText=(vpd/n).toFixed(2);
-document.getElementById("rain").innerText=rain.toFixed(2)+" mm";
+document.getElementById("temp").innerHTML=(temp/n).toFixed(2)+" °C";
+document.getElementById("hum").innerHTML=(hum/n).toFixed(2)+" %";
+document.getElementById("vpd").innerHTML=(vpd/n).toFixed(2);
+document.getElementById("rain").innerHTML=rain.toFixed(2)+" mm";
+
+document.getElementById("range").innerHTML=
+`ข้อมูลปี ${year} : 1 ม.ค. ${year} - 31 ธ.ค. ${year}`;
+
+drawChart(hours,temps);
+
+}
+
+function drawChart(h,t){
+
+if(chart) chart.destroy();
+
+chart=new Chart(
+document.getElementById("chart"),
+{
+type:"line",
+data:{
+labels:h,
+datasets:[{
+label:"อุณหภูมิ °C",
+data:t
+}]
+},
+options:{
+responsive:true
+}
+}
+);
+
+}
+
+function hourPage(){
+
+let date=document.getElementById("date").value;
+
+if(!date){
+alert("เลือกวันที่ก่อน");
+return;
+}
+
+window.open(`new1.html?date=${date}`,"_blank");
 
 }
 
