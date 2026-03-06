@@ -40,6 +40,9 @@ color:#4f46e5;
 
 .panel{
 margin-top:20px;
+display:flex;
+gap:10px;
+align-items:center;
 }
 
 .stats{
@@ -69,7 +72,20 @@ margin-top:30px;
 }
 
 .chart{
-height:250px;
+height:180px;
+}
+
+button{
+padding:8px 14px;
+border:none;
+border-radius:8px;
+background:#4f46e5;
+color:white;
+cursor:pointer;
+}
+
+button:hover{
+background:#4338ca;
 }
 
 </style>
@@ -91,6 +107,8 @@ height:250px;
 <input type="date" id="targetDate">
 
 <button onclick="processDailyData()">แสดงผล</button>
+
+<button onclick="goHourly()">ดูข้อมูลรายชั่วโมง</button>
 
 </div>
 
@@ -145,10 +163,16 @@ window.onload=async function(){
 
 for(const file of files){
 
+try{
+
 const res=await fetch(file);
 const text=await res.text();
 
 parseData(text);
+
+}catch(e){
+console.log("โหลดไฟล์ไม่ได้",file);
+}
 
 }
 
@@ -234,6 +258,21 @@ renderChart("chartRain","Rain",sumRain);
 
 }
 
+function goHourly(){
+
+const date=document.getElementById("targetDate").value;
+
+if(!date){
+alert("กรุณาเลือกวันที่ก่อน");
+return;
+}
+
+localStorage.setItem("selectedTargetDate",date);
+
+window.location.href="new1.html";
+
+}
+
 function renderChart(id,label,value){
 
 const ctx=document.getElementById(id).getContext("2d");
@@ -246,14 +285,16 @@ type:"bar",
 
 data:{
 labels:[label],
-datasets:[{data:[value]}]
+datasets:[{
+data:[value],
+backgroundColor:"#6366f1"
+}]
 },
 
 options:{
 responsive:true,
 plugins:{legend:{display:false}},
 scales:{y:{beginAtZero:true}}
-
 }
 
 });
