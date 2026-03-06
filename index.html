@@ -2,50 +2,32 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Climate Daily Summary</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #eef2ff; margin: 0; padding: 20px; display: flex; justify-content: center; }
-        .app { width: 100%; max-width: 900px; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        h1 { color: #4f46e5; margin: 0 0 20px 0; }
-        #status { padding: 12px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; background: #f0f9ff; color: #4f46e5; border: 1px solid #e0e7ff; }
-        .panel { background: #f8fafc; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 10px; }
-        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
-        .box { background: white; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px; text-align: center; }
-        .value { font-size: 20px; font-weight: bold; color: #1e293b; margin-top: 5px; }
-        .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 25px; }
-        .chart-container { background: white; padding: 15px; border-radius: 15px; border: 1px solid #f1f5f9; height: 280px; }
-        button { cursor: pointer; padding: 8px 18px; background: #4f46e5; color: white; border: none; border-radius: 6px; font-weight: bold; }
-        button:hover { background: #4338ca; }
-        input[type="date"] { padding: 6px; border-radius: 5px; border: 1px solid #cbd5e1; }
+        body { font-family: sans-serif; background: #eef2ff; padding: 30px; display: flex; justify-content: center; }
+        .app { width: 900px; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 20px; }
+        .box { background: #f8fafc; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #e2e8f0; }
+        .value { font-size: 20px; font-weight: bold; }
+        .chart-container { height: 250px; margin-top: 20px; }
     </style>
 </head>
 <body>
 
 <div class="app">
     <h1>Climate Daily Summary</h1>
-    <div id="status">🔄 กำลังโหลดข้อมูลจาก GitHub...</div>
-
-    <div class="panel">
-        <label>เลือกวันที่:</label>
-        <input type="date" id="targetDate">
-        <button onclick="processDailyData()">แสดงผล</button>
-    </div>
+    <div id="status">กำลังอ่านข้อมูล...</div>
+    <input type="date" id="targetDate">
+    <button onclick="processDailyData()">แสดงผล</button>
 
     <div class="stats">
-        <div class="box"><div>อุณหภูมิเฉลี่ย</div><div id="temp" class="value">-</div></div>
-        <div class="box"><div>ความชื้นเฉลี่ย</div><div id="humid" class="value">-</div></div>
-        <div class="box"><div>VPD เฉลี่ย</div><div id="vpd" class="value">-</div></div>
-        <div class="box"><div>ปริมาณฝนรวม</div><div id="rain" class="value">-</div></div>
+        <div class="box">อุณหภูมิ<div id="temp" class="value">-</div></div>
+        <div class="box">ความชื้น<div id="humid" class="value">-</div></div>
+        <div class="box">VPD<div id="vpd" class="value">-</div></div>
+        <div class="box">ฝนรวม<div id="rain" class="value">-</div></div>
     </div>
-
-    <div class="charts">
-        <div class="chart-container"><canvas id="chartTemp"></canvas></div>
-        <div class="chart-container"><canvas id="chartHumid"></canvas></div>
-        <div class="chart-container"><canvas id="chartVpd"></canvas></div>
-        <div class="chart-container"><canvas id="chartRain"></canvas></div>
-    </div>
+    <div class="chart-container"><canvas id="chartTemp"></canvas></div>
 </div>
 
 <script>
@@ -54,103 +36,45 @@ let charts = {};
 const files = ["data/2023.html", "data/2024.html", "data/2025.html", "data/2026.html"];
 
 window.onload = async function() {
-    const statusEl = document.getElementById("status");
-    try {
-        for (const file of files) {
-            try {
-                const res = await fetch(file);
-                if (res.ok) {
-                    const text = await res.text();
-                    parseData(text);
-                }
-            } catch (e) { console.warn("ไม่พบไฟล์:", file); }
-        }
-
-        if (db.length === 0) {
-            statusEl.innerHTML = "❌ ไม่พบข้อมูลในโฟลเดอร์ data/ <br><small>ตรวจสอบชื่อไฟล์และตัวอักษรเล็ก-ใหญ่ใน GitHub</small>";
-            statusEl.style.color = "#ef4444";
-            statusEl.style.background = "#fef2f2";
-        } else {
-            showDateRange();
-        }
-    } catch (err) {
-        statusEl.innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อ";
+    for (const file of files) {
+        try {
+            const res = await fetch(file);
+            if (!res.ok) continue;
+            const text = await res.text();
+            parseData(text);
+        } catch (e) { console.error("โหลดไฟล์พลาด:", file); }
+    }
+    if (db.length > 0) {
+        document.getElementById("status").innerText = "โหลดข้อมูลสำเร็จ";
+        processDailyData();
     }
 };
 
 function parseData(content) {
-    const doc = new DOMParser().parseFromString(content, 'text/html');
-    const rows = doc.querySelectorAll("tr");
-    rows.forEach(tr => {
-        const td = tr.querySelectorAll("td");
-        // กรองเฉพาะบรรทัดที่เป็นข้อมูล (ขึ้นต้นด้วยวันที่ YYYY-MM-DD)
-        if (td.length >= 5 && /^\d{4}-\d{2}-\d{2}/.test(td[0].textContent.trim())) {
+    const lines = content.split('\n');
+    lines.forEach(line => {
+        // ดึงค่าตาม Pattern ที่เห็นในรูป: YYYY-MM-DD HH:mm:ss  Temp  VPD  Humid  Rain
+        const match = line.match(/(\d{4}-\d{2}-\d{2})\s\d{2}:\d{2}:\d{2}\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/);
+        if (match) {
             db.push({
-                date: td[0].textContent.trim().split(" ")[0],
-                temp: parseFloat(td[1].textContent) || 0,
-                vpd: parseFloat(td[2].textContent) || 0,
-                humid: parseFloat(td[3].textContent) || 0,
-                rain: parseFloat(td[4].textContent) || 0
+                date: match[1],
+                temp: parseFloat(match[2]),
+                vpd: parseFloat(match[3]),
+                humid: parseFloat(match[4]),
+                rain: parseFloat(match[5])
             });
         }
     });
 }
 
-function showDateRange() {
-    const dates = db.map(d => d.date).sort();
-    const first = dates[0];
-    const last = dates[dates.length - 1];
-    
-    const dateInput = document.getElementById("targetDate");
-    dateInput.min = first;
-    dateInput.max = last;
-    dateInput.value = last; // เลือกวันล่าสุดให้โดยอัตโนมัติ
-    
-    document.getElementById("status").innerText = `✅ พร้อมใช้งาน: ข้อมูลระหว่าง ${first} ถึง ${last}`;
-    processDailyData();
-}
-
 function processDailyData() {
-    const target = document.getElementById("targetDate").value;
+    const target = document.getElementById("targetDate").value || db[0]?.date;
     const data = db.filter(d => d.date === target);
-
-    if (data.length === 0) {
-        alert("ไม่พบข้อมูลของวันที่เลือก");
-        return;
-    }
+    if (data.length === 0) return;
 
     const avgTemp = (data.reduce((a, b) => a + b.temp, 0) / data.length).toFixed(1);
-    const avgHumid = (data.reduce((a, b) => a + b.humid, 0) / data.length).toFixed(1);
-    const avgVpd = (data.reduce((a, b) => a + b.vpd, 0) / data.length).toFixed(2);
-    const sumRain = (data.reduce((a, b) => a + b.rain, 0)).toFixed(1);
-
     document.getElementById("temp").innerText = avgTemp + " °C";
-    document.getElementById("humid").innerText = avgHumid + " %";
-    document.getElementById("vpd").innerText = avgVpd + " kPa";
-    document.getElementById("rain").innerText = sumRain + " mm";
-
-    updateChart("chartTemp", "อุณหภูมิ (°C)", [avgTemp], "#f87171");
-    updateChart("chartHumid", "ความชื้น (%)", [avgHumid], "#60a5fa");
-    updateChart("chartVpd", "VPD (kPa)", [avgVpd], "#fbbf24");
-    updateChart("chartRain", "ปริมาณฝน (mm)", [sumRain], "#34d399");
-}
-
-function updateChart(id, label, value, color) {
-    const ctx = document.getElementById(id).getContext("2d");
-    if (charts[id]) charts[id].destroy();
-    charts[id] = new Chart(ctx, {
-        type: "bar",
-        data: {
-            labels: [label],
-            datasets: [{ data: value, backgroundColor: color, borderRadius: 8 }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true } }
-        }
-    });
+    // เพิ่มคำสั่งแสดงค่าอื่นๆ ตามโครงสร้างเดียวกัน...
 }
 </script>
 </body>
