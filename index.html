@@ -5,89 +5,56 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Climate Daily Summary</title>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <style>
-
 body{
-font-family: Arial;
-background:#e9edf5;
+font-family: Arial, sans-serif;
+background:#4a3f72;
 margin:0;
-padding:40px;
+padding:0;
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
 }
 
 .container{
 background:white;
-padding:25px;
-border-radius:12px;
-max-width:1100px;
-margin:auto;
-box-shadow:0 0 10px rgba(0,0,0,0.1);
+padding:30px;
+border-radius:15px;
+width:700px;
+box-shadow:0 5px 15px rgba(0,0,0,0.2);
 }
 
-h1{
-color:#3b5cff;
-margin-bottom:10px;
+h2{
+margin-top:0;
 }
 
-.info{
-margin-bottom:20px;
-font-size:14px;
-color:#444;
+input{
+padding:5px;
+}
+
+button{
+padding:6px 12px;
+background:#007bff;
+color:white;
+border:none;
+border-radius:5px;
+cursor:pointer;
 }
 
 .cards{
-display:grid;
-grid-template-columns:repeat(4,1fr);
-gap:15px;
-margin-bottom:25px;
+display:flex;
+gap:10px;
+margin-top:20px;
 }
 
 .card{
-background:#f2f4f8;
+flex:1;
+background:#f0f0f0;
 padding:15px;
 border-radius:10px;
 text-align:center;
 }
-
-.card h3{
-margin:0;
-font-size:14px;
-color:#555;
-}
-
-.card p{
-font-size:20px;
-margin:5px 0 0;
-font-weight:bold;
-}
-
-.charts{
-display:grid;
-grid-template-columns:1fr 1fr;
-gap:25px;
-}
-
-canvas{
-background:#fff;
-padding:10px;
-border-radius:8px;
-}
-
-button{
-margin-top:20px;
-padding:10px 18px;
-border:none;
-background:#3b5cff;
-color:white;
-border-radius:6px;
-cursor:pointer;
-}
-
-button:hover{
-background:#2c47d9;
-}
-
 </style>
 </head>
 
@@ -95,193 +62,116 @@ background:#2c47d9;
 
 <div class="container">
 
-<h1>Climate Daily Summary</h1>
+<h2>กำลังโหลดข้อมูล...</h2>
 
-<div class="info">
-ช่วงข้อมูลทั้งหมด : <span id="range">กำลังโหลด...</span>
-</div>
-
-<input type="date" id="datePicker">
+เลือกวันที่
+<input type="date" id="date">
+<button onclick="showData()">แสดงผล</button>
 
 <div class="cards">
-
 <div class="card">
-<h3>อุณหภูมิเฉลี่ย</h3>
-<p id="temp">--</p>
-</div>
-
-<div class="card">
-<h3>ความชื้นเฉลี่ย</h3>
-<p id="humid">--</p>
+อุณหภูมิเฉลี่ย<br>
+<span id="temp">-</span>
 </div>
 
 <div class="card">
-<h3>VPD เฉลี่ย</h3>
-<p id="vpd">--</p>
+ความชื้นเฉลี่ย<br>
+<span id="hum">-</span>
 </div>
 
 <div class="card">
-<h3>ปริมาณฝนรวม</h3>
-<p id="rain">--</p>
+VPD เฉลี่ย<br>
+<span id="vpd">-</span>
 </div>
 
+<div class="card">
+ปริมาณฝนรวม<br>
+<span id="rain">-</span>
 </div>
-
-<div class="charts">
-
-<canvas id="chartTemp"></canvas>
-<canvas id="chartHumid"></canvas>
-<canvas id="chartVpd"></canvas>
-<canvas id="chartRain"></canvas>
-
 </div>
-
-<a href="new1.html">
-<button>ดูข้อมูลรายชั่วโมง</button>
-</a>
 
 </div>
 
 <script>
 
-let db=[];
+async function loadAllData(){
 
-async function loadData(){
+const files=[
+"data/2023.html",
+"data/2024.html",
+"data/2025.html",
+"data/2026.html"
+];
 
-const files=["2023.html","2024.html","2025.html","2026.html"];
+let allData=[];
 
 for(const file of files){
 
 try{
 
-const res=await fetch(file);
-const text=await res.text();
+let res=await fetch(file);
+let text=await res.text();
 
-parseData(text);
-
-}catch(e){
-console.log("โหลดไม่ได้",file);
-}
-
-}
-
-init();
-
-}
-
-function parseData(content){
-
-const lines=content.split("\n");
+let lines=text.split("\n");
 
 lines.forEach(line=>{
-
-line=line.trim();
-
-if(line.match(/^\\d{4}-\\d{2}-\\d{2}/)){
-
-const p=line.split(/\\s+/);
-
-db.push({
-
-date:p[0],
-time:p[1],
-temp:parseFloat(p[2])||0,
-vpd:parseFloat(p[3])||0,
-humid:parseFloat(p[4])||0,
-rain:parseFloat(p[5])||0
-
+if(line.includes("-") && line.includes(":")){
+allData.push(line.trim());
+}
 });
+
+}catch(e){
+console.log("error loading",file);
+}
 
 }
 
-});
+return allData;
 
 }
 
-let chartTemp,chartHumid,chartVpd,chartRain;
+async function showData(){
 
-function init(){
+let date=document.getElementById("date").value;
 
-db.sort((a,b)=> new Date(a.date+" "+a.time)-new Date(b.date+" "+b.time));
-
-const start=db[0].date;
-const end=db[db.length-1].date;
-
-document.getElementById("range").innerText=start+" ถึง "+end;
-
-document.getElementById("datePicker").value=start;
-
-createCharts();
-
-updateDay(start);
-
-document.getElementById("datePicker").addEventListener("change",e=>{
-updateDay(e.target.value);
-});
-
+if(!date){
+alert("กรุณาเลือกวันที่");
+return;
 }
 
-function createCharts(){
+let data=await loadAllData();
 
-chartTemp=new Chart(document.getElementById("chartTemp"),{
-type:"bar",
-data:{labels:["Temp"],datasets:[{label:"Temp",data:[0]}]}
-});
+let dayData=data.filter(line=>line.includes(date));
 
-chartHumid=new Chart(document.getElementById("chartHumid"),{
-type:"bar",
-data:{labels:["Humidity"],datasets:[{label:"Humidity",data:[0]}]}
-});
-
-chartVpd=new Chart(document.getElementById("chartVpd"),{
-type:"bar",
-data:{labels:["VPD"],datasets:[{label:"VPD",data:[0]}]}
-});
-
-chartRain=new Chart(document.getElementById("chartRain"),{
-type:"bar",
-data:{labels:["Rain"],datasets:[{label:"Rain",data:[0]}]}
-});
-
+if(dayData.length==0){
+alert("ไม่พบข้อมูล");
+return;
 }
 
-function updateDay(date){
+let temp=0;
+let hum=0;
+let vpd=0;
+let rain=0;
 
-const day=db.filter(d=>d.date===date);
+dayData.forEach(line=>{
 
-if(day.length==0)return;
+let p=line.split(/\s+/);
 
-let t=0,h=0,v=0,r=0;
+temp+=parseFloat(p[2]);
+vpd+=parseFloat(p[3]);
+hum+=parseFloat(p[4]);
+rain+=parseFloat(p[5]);
 
-day.forEach(d=>{
-t+=d.temp;
-h+=d.humid;
-v+=d.vpd;
-r+=d.rain;
 });
 
-t/=day.length;
-h/=day.length;
-v/=day.length;
+let n=dayData.length;
 
-document.getElementById("temp").innerText=t.toFixed(1)+" °C";
-document.getElementById("humid").innerText=h.toFixed(1)+" %";
-document.getElementById("vpd").innerText=v.toFixed(2)+" kPa";
-document.getElementById("rain").innerText=r.toFixed(1)+" mm";
-
-chartTemp.data.datasets[0].data=[t];
-chartHumid.data.datasets[0].data=[h];
-chartVpd.data.datasets[0].data=[v];
-chartRain.data.datasets[0].data=[r];
-
-chartTemp.update();
-chartHumid.update();
-chartVpd.update();
-chartRain.update();
+document.getElementById("temp").innerText=(temp/n).toFixed(2)+" °C";
+document.getElementById("hum").innerText=(hum/n).toFixed(2)+" %";
+document.getElementById("vpd").innerText=(vpd/n).toFixed(2);
+document.getElementById("rain").innerText=rain.toFixed(2)+" mm";
 
 }
-
-loadData();
 
 </script>
 
