@@ -148,12 +148,17 @@ for(const file of files){
 try{
 
 const res=await fetch(file)
+
+if(!res.ok) continue
+
 const text=await res.text()
 
 parseData(text)
 
 }catch(e){
-console.log("โหลดไฟล์ไม่ได้",file)
+
+console.log("โหลดไฟล์ไม่ได้:",file)
+
 }
 
 }
@@ -175,10 +180,10 @@ if(parts.length>=6 && /^\d{4}-\d{2}-\d{2}/.test(parts[0])){
 db.push({
 
 date:parts[0],
-temp:parseFloat(parts[2])||0,
-vpd:parseFloat(parts[3])||0,
-humid:parseFloat(parts[4])||0,
-rain:parseFloat(parts[5])||0
+temp:Number(parts[2])||0,
+vpd:Number(parts[3])||0,
+humid:Number(parts[4])||0,
+rain:Number(parts[5])||0
 
 })
 
@@ -190,7 +195,13 @@ rain:parseFloat(parts[5])||0
 
 function showDateRange(){
 
-if(db.length===0)return
+if(db.length===0){
+
+document.getElementById("dateRange").innerText="ไม่พบข้อมูล"
+
+return
+
+}
 
 const dates=db.map(d=>d.date).sort()
 
@@ -210,26 +221,32 @@ function processDailyData(){
 const date=document.getElementById("targetDate").value
 
 if(!date){
+
 alert("กรุณาเลือกวันที่")
+
 return
+
 }
 
 const data=db.filter(d=>d.date===date)
 
 if(data.length===0){
+
 alert("ไม่พบข้อมูล")
+
 return
+
 }
 
-const avgTemp=(data.reduce((a,b)=>a+b.temp,0)/data.length).toFixed(1)
-const avgHumid=(data.reduce((a,b)=>a+b.humid,0)/data.length).toFixed(1)
-const avgVpd=(data.reduce((a,b)=>a+b.vpd,0)/data.length).toFixed(2)
-const sumRain=(data.reduce((a,b)=>a+b.rain,0)).toFixed(1)
+const avgTemp=data.reduce((a,b)=>a+b.temp,0)/data.length
+const avgHumid=data.reduce((a,b)=>a+b.humid,0)/data.length
+const avgVpd=data.reduce((a,b)=>a+b.vpd,0)/data.length
+const sumRain=data.reduce((a,b)=>a+b.rain,0)
 
-document.getElementById("temp").innerText=avgTemp+" °C"
-document.getElementById("humid").innerText=avgHumid+" %"
-document.getElementById("vpd").innerText=avgVpd+" kPa"
-document.getElementById("rain").innerText=sumRain+" mm"
+document.getElementById("temp").innerText=avgTemp.toFixed(1)+" °C"
+document.getElementById("humid").innerText=avgHumid.toFixed(1)+" %"
+document.getElementById("vpd").innerText=avgVpd.toFixed(2)+" kPa"
+document.getElementById("rain").innerText=sumRain.toFixed(1)+" mm"
 
 renderChart("chartTemp","Temp",avgTemp)
 renderChart("chartHumid","Humidity",avgHumid)
@@ -242,7 +259,7 @@ function renderChart(id,label,value){
 
 const ctx=document.getElementById(id).getContext("2d")
 
-if(charts[id])charts[id].destroy()
+if(charts[id]) charts[id].destroy()
 
 charts[id]=new Chart(ctx,{
 
@@ -251,6 +268,7 @@ type:"bar",
 data:{
 labels:[label],
 datasets:[{
+label:label,
 data:[value]
 }]
 },
