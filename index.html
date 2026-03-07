@@ -9,32 +9,38 @@
         body{ font-family:sans-serif; background:#eef2ff; margin:0; padding:30px; display:flex; justify-content:center; }
         .app{ width:900px; background:white; padding:30px; border-radius:20px; box-shadow:0 10px 25px rgba(0,0,0,0.1); }
         h1{ margin-top:0; color:#4f46e5; }
-        #dateRange{ font-weight:bold; color:#4f46e5; }
-        .panel{ margin-top:20px; display: flex; gap: 10px; align-items: center; }
+        #dateRange{ font-weight:bold; color:#4f46e5; margin-bottom: 10px; }
+        .panel{ margin-top:20px; display: flex; gap: 10px; align-items: center; background: #f1f5f9; padding: 15px; border-radius: 12px; }
         .stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:15px; margin-top:20px; }
-        .box{ background:#f8fafc; padding:15px; border-radius:12px; text-align:center; }
-        .value{ font-size:20px; font-weight:bold; }
+        .box{ background:#f8fafc; padding:15px; border-radius:12px; text-align:center; border: 1px solid #e2e8f0; }
+        .value{ font-size:20px; font-weight:bold; color: #1e293b; }
         .charts{ display:grid; grid-template-columns:repeat(2,1fr); gap:20px; margin-top:30px; }
         .chart{ height:250px; }
-        .btn-hourly { background:#4f46e5; color:white; border:none; padding:8px 15px; border-radius:8px; cursor:pointer; }
+        button { cursor: pointer; border: none; border-radius: 8px; padding: 10px 15px; font-weight: bold; transition: 0.2s; }
+        .btn-view { background: #4f46e5; color: white; }
+        .btn-hourly { background: #6366f1; color: white; }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
     </style>
 </head>
 <body>
     <div class="app">
         <h1>Climate Daily Summary</h1>
-        <p id="dateRange">กำลังโหลดข้อมูล...</p>
+        <p id="dateRange">กำลังเชื่อมต่อฐานข้อมูล...</p>
+        
         <div class="panel">
-            <label>เลือกวันที่</label>
+            <label>เลือกวันที่:</label>
             <input type="date" id="targetDate">
-            <button onclick="processDailyData()">แสดงผล</button>
+            <button class="btn-view" onclick="processDailyData()">แสดงผล</button>
             <button class="btn-hourly" onclick="goToHourly()">ดูรายชั่วโมง (new1.html)</button>
         </div>
+
         <div class="stats">
             <div class="box"><div>อุณหภูมิเฉลี่ย</div><div id="temp" class="value">-</div></div>
             <div class="box"><div>ความชื้นเฉลี่ย</div><div id="humid" class="value">-</div></div>
             <div class="box"><div>VPD เฉลี่ย</div><div id="vpd" class="value">-</div></div>
             <div class="box"><div>ปริมาณฝนรวม</div><div id="rain" class="value">-</div></div>
         </div>
+
         <div class="charts">
             <canvas id="chartTemp" class="chart"></canvas>
             <canvas id="chartHumid" class="chart"></canvas>
@@ -44,79 +50,94 @@
     </div>
 
     <script>
-        let db=[];
-        let charts={};
-        const files=["data/2023.html", "data/2024.html", "data/2025.html", "data/2026.html"];
+        let db = [];
+        let charts = {};
+        const files = ["data/2023.html", "data/2024.html", "data/2025.html", "data/2026.html"];
 
-        window.onload=async function(){
-            for(const file of files){
+        window.onload = async function() {
+            let loadedCount = 0;
+            for (const file of files) {
                 try {
-                    const res=await fetch(file);
-                    const text=await res.text();
+                    const res = await fetch(file);
+                    if (!res.ok) continue;
+                    const text = await res.text();
                     parseData(text);
-                } catch(e) { console.error("Error loading:", file); }
+                    loadedCount++;
+                } catch (e) { console.error("ไม่สามารถโหลดไฟล์:", file); }
             }
-            showDateRange();
+            if(loadedCount > 0) showDateRange();
+            else document.getElementById("dateRange").innerText = "ไม่สามารถโหลดฐานข้อมูลได้ กรุณาเช็คโฟลเดอร์ data/";
         };
 
-        function parseData(content){
-            const doc=new DOMParser().parseFromString(content,'text/html');
-            const rows=doc.querySelectorAll("tr");
-            rows.forEach(tr=>{
-                const td=tr.querySelectorAll("td");
-                if(td.length>=5 && /^\d{4}-\d{2}-\d{2}/.test(td[0].textContent)){
-                    db.push({
-                        date: td[0].textContent.split(" ")[0],
-                        temp: parseFloat(td[1].textContent)||0,
-                        vpd: parseFloat(td[2].textContent)||0,
-                        humid: parseFloat(td[3].textContent)||0,
-                        rain: parseFloat(td[4].textContent)||0
-                    });
+        function parseData(content) {
+            const doc = new DOMParser().parseFromString(content, 'text/html');
+            const rows = doc.querySelectorAll("tr");
+            rows.forEach(tr => {
+                const td = tr.querySelectorAll("td");
+                if (td.length >= 5) {
+                    const rawDate = td[0].textContent.trim();
+                    // ตรวจสอบว่าเป็นรูปแบบวันที่หรือไม่ (YYYY-MM-DD)
+                    if(/^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
+                        db.push({
+                            date: rawDate.split(" ")[0],
+                            temp: parseFloat(td[1].textContent) || 0,
+                            vpd: parseFloat(td[2].textContent) || 0,
+                            humid: parseFloat(td[3].textContent) || 0,
+                            rain: parseFloat(td[4].textContent) || 0
+                        });
+                    }
                 }
             });
         }
 
-        function showDateRange(){
-            if(db.length===0) return;
-            const dates=db.map(d=>d.date).sort();
-            document.getElementById("targetDate").min=dates[0];
-            document.getElementById("targetDate").max=dates[dates.length-1];
-            document.getElementById("dateRange").innerText="ช่วงข้อมูลทั้งหมด : "+dates[0]+" ถึง "+dates[dates.length-1];
+        function showDateRange() {
+            if (db.length === 0) return;
+            const dates = db.map(d => d.date).sort();
+            const first = dates[0];
+            const last = dates[dates.length - 1];
+            const input = document.getElementById("targetDate");
+            input.min = first;
+            input.max = last;
+            input.value = last; // ตั้งค่าเริ่มต้นเป็นวันที่ล่าสุดที่มีข้อมูล
+            document.getElementById("dateRange").innerText = "ช่วงข้อมูลทั้งหมด: " + first + " ถึง " + last;
         }
 
-        function processDailyData(){
-            const date=document.getElementById("targetDate").value;
-            if(!date){ alert("กรุณาเลือกวันที่"); return; }
-            const data=db.filter(d=>d.date===date);
-            if(data.length===0){ alert("ไม่พบข้อมูล"); return; }
+        function processDailyData() {
+            const date = document.getElementById("targetDate").value;
+            if (!date) { alert("กรุณาเลือกวันที่"); return; }
+            
+            const data = db.filter(d => d.date === date);
+            if (data.length === 0) {
+                alert("ไม่พบข้อมูลในวันที่ " + date + "\nกรุณาเลือกวันที่ที่มีในระบบ");
+                return;
+            }
 
-            const avgTemp=(data.reduce((a,b)=>a+b.temp,0)/data.length).toFixed(1);
-            const avgHumid=(data.reduce((a,b)=>a+b.humid,0)/data.length).toFixed(1);
-            const avgVpd=(data.reduce((a,b)=>a+b.vpd,0)/data.length).toFixed(2);
-            const sumRain=(data.reduce((a,b)=>a+b.rain,0)).toFixed(1);
+            const avgTemp = (data.reduce((a, b) => a + b.temp, 0) / data.length).toFixed(1);
+            const avgHumid = (data.reduce((a, b) => a + b.humid, 0) / data.length).toFixed(1);
+            const avgVpd = (data.reduce((a, b) => a + b.vpd, 0) / data.length).toFixed(2);
+            const sumRain = (data.reduce((a, b) => a + b.rain, 0)).toFixed(1);
 
-            document.getElementById("temp").innerText=avgTemp+" °C";
-            document.getElementById("humid").innerText=avgHumid+" %";
-            document.getElementById("vpd").innerText=avgVpd+" kPa";
-            document.getElementById("rain").innerText=sumRain+" mm";
+            document.getElementById("temp").innerText = avgTemp + " °C";
+            document.getElementById("humid").innerText = avgHumid + " %";
+            document.getElementById("vpd").innerText = avgVpd + " kPa";
+            document.getElementById("rain").innerText = sumRain + " mm";
 
-            renderChart("chartTemp","Temp",avgTemp);
-            renderChart("chartHumid","Humidity",avgHumid);
-            renderChart("chartVpd","VPD",avgVpd);
-            renderChart("chartRain","Rain",sumRain);
+            renderChart("chartTemp", "อุณหภูมิเฉลี่ย", avgTemp, "#f97316");
+            renderChart("chartHumid", "ความชื้นเฉลี่ย", avgHumid, "#3b82f6");
+            renderChart("chartVpd", "VPD เฉลี่ย", avgVpd, "#a855f7");
+            renderChart("chartRain", "ปริมาณฝนรวม", sumRain, "#14b8a6");
         }
 
-        function renderChart(id,label,value){
-            const ctx=document.getElementById(id).getContext("2d");
-            if(charts[id]) charts[id].destroy();
-            charts[id]=new Chart(ctx,{
-                type:"bar",
-                data:{ labels:[label], datasets:[{ data:[value], backgroundColor:'#4f46e5' }] },
-                options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+        function renderChart(id, label, value, color) {
+            const ctx = document.getElementById(id).getContext("2d");
+            if (charts[id]) charts[id].destroy();
+            charts[id] = new Chart(ctx, {
+                type: "bar",
+                data: { labels: [label], datasets: [{ data: [value], backgroundColor: color }] },
+                options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
             });
         }
 
-        // ฟังก์ชันส่งค่าไปหน้า new1.html
         function goToHourly() {
             const date = document.getElementById("targetDate").value;
             if (!date) { alert("กรุณาเลือกวันที่ก่อน"); return; }
