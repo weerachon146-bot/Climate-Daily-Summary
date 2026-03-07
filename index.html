@@ -8,24 +8,26 @@
     <style>
         body{ font-family:sans-serif; background:#eef2ff; margin:0; padding:30px; display:flex; justify-content:center; }
         .app{ width:900px; background:white; padding:30px; border-radius:20px; box-shadow:0 10px 25px rgba(0,0,0,0.1); }
+        .status-log { font-size: 13px; color: #666; background: #f1f5f9; padding: 10px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #4f46e5; }
         .panel{ margin-top:20px; background:#f8fafc; padding:15px; border-radius:12px; display:flex; gap:10px; align-items:center; border:1px solid #e2e8f0; }
         .stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:15px; margin-top:20px; }
         .box{ background:#ffffff; padding:15px; border-radius:12px; text-align:center; border:1px solid #e2e8f0; }
         .value{ font-size:20px; font-weight:bold; color:#4f46e5; }
         button{ cursor:pointer; border:none; border-radius:8px; padding:10px 15px; font-weight:bold; background:#4f46e5; color:white; }
-        #loadingStatus { color: #ef4444; font-weight: bold; margin-bottom: 10px; }
+        .btn-hourly { background:#6366f1; }
     </style>
 </head>
 <body>
     <div class="app">
         <h1>Climate Daily Summary</h1>
-        <div id="loadingStatus">กำลังโหลดฐานข้อมูล...</div>
+        
+        <div id="loadingStatus" class="status-log">กำลังตรวจสอบการเชื่อมต่อไฟล์...</div>
         
         <div class="panel">
             <label>เลือกวันที่:</label>
             <input type="date" id="targetDate">
             <button onclick="processDailyData()">แสดงผล</button>
-            <button onclick="goToHourly()" style="background:#6366f1;">ดูรายชั่วโมง (new1.html)</button>
+            <button class="btn-hourly" onclick="goToHourly()">ดูรายชั่วโมง (new1.html)</button>
         </div>
 
         <div class="stats">
@@ -34,47 +36,71 @@
             <div class="box"><div>VPD เฉลี่ย</div><div id="vpd" class="value">-</div></div>
             <div class="box"><div>ปริมาณฝนรวม</div><div id="rain" class="value">-</div></div>
         </div>
-        <div class="mt-8" style="height:300px;"><canvas id="mainChart"></canvas></div>
+        
+        <div id="chartArea" style="margin-top:20px; height:250px; display:none;">
+            <canvas id="mainChart"></canvas>
+        </div>
     </div>
 
     <script>
         let db = [];
         const files = ["data/2023.html", "data/2024.html", "data/2025.html", "data/2026.html"];
+        const statusEl = document.getElementById("loadingStatus");
 
         window.onload = async function() {
-            const status = document.getElementById("loadingStatus");
-            // เพิ่ม Timestamp เพื่อล้าง Cache ของ GitHub
-            const cacheBuster = "?v=" + new Date().getTime();
-            
+            let logs = [];
+            // ใส่ Timestamp ป้องกัน Cache (สำคัญมากสำหรับ GitHub Pages)
+            const buster = "?v=" + Date.now();
+
             for (const file of files) {
                 try {
-                    const res = await fetch(file + cacheBuster);
-                    if (!res.ok) continue;
+                    const res = await fetch(file + buster);
+                    if (!res.ok) {
+                        logs.push("❌ " + file + " (ไม่พบไฟล์)");
+                        continue;
+                    }
                     const text = await res.text();
-                    parseDataRaw(text);
-                } catch (e) { console.error("Error loading:", file); }
+                    const countBefore = db.length;
+                    parseDataSafe(text);
+                    const countAfter = db.length;
+                    
+                    if (countAfter > countBefore) {
+                        logs.push("✅ " + file + " (โหลดสำเร็จ: " + (countAfter - countBefore) + " แถว)");
+                    } else {
+                        logs.push("⚠️ " + file + " (พบไฟล์แต่ไม่มีข้อมูลในตาราง)");
+                    }
+                } catch (e) {
+                    logs.push("❌ " + file + " (Error: " + e.message + ")");
+                }
             }
+
+            statusEl.innerHTML = logs.join("<br>");
 
             if (db.length > 0) {
                 const dates = [...new Set(db.map(d => d.date))].sort();
-                document.getElementById("targetDate").min = dates[0];
-                document.getElementById("targetDate").max = dates[dates.length-1];
-                document.getElementById("targetDate").value = dates[dates.length-1];
-                status.innerText = "✅ โหลดข้อมูลสำเร็จแล้ว";
-                status.style.color = "#22c55e";
+                const input = document.getElementById("targetDate");
+                input.min = dates[0];
+                input.max = dates[dates.length - 1];
+                input.value = dates[dates.length - 1]; // เลือกวันที่ล่าสุดอัตโนมัติ
+                statusEl.style.borderLeftColor = "#22c55e";
             } else {
-                status.innerText = "❌ ตรวจสอบไฟล์ใน data/ ข้อมูลข้างในอาจไม่ตรงรูปแบบ YYYY-MM-DD";
+                statusEl.innerHTML += "<br><b>*** กรุณาเช็คว่าข้อมูลในไฟล์ HTML อยู่ในแท็ก &lt;tr&gt;&lt;td&gt; หรือไม่ ***</b>";
+                statusEl.style.borderLeftColor = "#ef4444";
             }
         };
 
-        // ใช้การอ่านค่าแบบ Raw Text เพื่อความแม่นยำสูงสุด
-        function parseDataRaw(text) {
+        // ฟังก์ชันอ่านข้อมูลแบบถึกทน (ไม่แคร์โครงสร้าง HTML ที่พัง)
+        function parseDataSafe(text) {
+            // ดึงเฉพาะแถว <tr> ทั้งหมด
             const rows = text.match(/<tr>(.*?)<\/tr>/gs) || [];
             rows.forEach(row => {
+                // ดึง <td> ทั้งหมดในแถวนั้น
                 const cols = row.match(/<td>(.*?)<\/td>/g);
                 if (cols && cols.length >= 5) {
                     const dateRaw = cols[0].replace(/<\/?td>/g, '').trim();
+                    // เช็คว่าขึ้นต้นด้วยปี-เดือน-วัน (2024-02-09)
                     const dateMatch = dateRaw.match(/^\d{4}-\d{2}-\d{2}/);
+                    
                     if (dateMatch) {
                         db.push({
                             date: dateMatch[0],
@@ -91,13 +117,21 @@
         function processDailyData() {
             const date = document.getElementById("targetDate").value;
             const data = db.filter(d => d.date === date);
-            if (data.length === 0) { alert("ไม่มีข้อมูลสำหรับวันที่เลือก"); return; }
+            
+            if (data.length === 0) {
+                alert("ไม่มีข้อมูลสำหรับวันที่: " + date);
+                return;
+            }
 
-            const avg = (key) => (data.reduce((a, b) => a + b[key], 0) / data.length);
-            document.getElementById("temp").innerText = avg('temp').toFixed(1) + " °C";
-            document.getElementById("humid").innerText = avg('humid').toFixed(1) + " %";
-            document.getElementById("vpd").innerText = avg('vpd').toFixed(2) + " kPa";
-            document.getElementById("rain").innerText = (data.reduce((a, b) => a + b.rain, 0)).toFixed(1) + " mm";
+            const avgTemp = (data.reduce((a, b) => a + b.temp, 0) / data.length).toFixed(1);
+            const avgHumid = (data.reduce((a, b) => a + b.humid, 0) / data.length).toFixed(1);
+            const avgVpd = (data.reduce((a, b) => a + b.vpd, 0) / data.length).toFixed(2);
+            const sumRain = (data.reduce((a, b) => a + b.rain, 0)).toFixed(1);
+
+            document.getElementById("temp").innerText = avgTemp + " °C";
+            document.getElementById("humid").innerText = avgHumid + " %";
+            document.getElementById("vpd").innerText = avgVpd + " kPa";
+            document.getElementById("rain").innerText = sumRain + " mm";
         }
 
         function goToHourly() {
@@ -105,6 +139,8 @@
             if (date) {
                 localStorage.setItem("selectedTargetDate", date);
                 window.location.href = "new1.html";
+            } else {
+                alert("กรุณาเลือกวันที่ก่อน");
             }
         }
     </script>
