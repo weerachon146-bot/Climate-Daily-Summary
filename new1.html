@@ -1,286 +1,132 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Weather Dashboard - Hourly View</title>
-
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap" rel="stylesheet">
-
-<style>
-body{
-font-family:'Sarabun',sans-serif;
-background:linear-gradient(135deg,#f0f9ff 0%,#e1ffeb 100%);
-min-height:100vh;
-}
-
-.glass-card{
-background:rgba(255,255,255,0.9);
-backdrop-filter:blur(10px);
-border:1px solid rgba(255,255,255,0.2);
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Dashboard - Hourly View</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body{ font-family:'Sarabun',sans-serif; background:linear-gradient(135deg,#f0f9ff 0%,#e1ffeb 100%); min-height:100vh; }
+        .glass-card{ background:rgba(255,255,255,0.9); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.2); }
+    </style>
 </head>
-
 <body class="p-4 md:p-8">
-
-<div class="max-w-6xl mx-auto">
-
-<header class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
-
-<div class="text-center md:text-left">
-<h1 class="text-3xl font-bold text-gray-800">🕒 ข้อมูลรายชั่วโมง</h1>
-<p id="displaySelectedDate" class="text-lg text-blue-600 font-semibold mt-1">
-วันที่เลือก: กำลังโหลด...
-</p>
-</div>
-
-<button onclick="window.location.href='index.html'"
-class="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-6 rounded-lg shadow">
-← กลับหน้าวิเคราะห์รายวัน
-</button>
-
-</header>
-
-
-<div class="bg-white p-6 rounded-3xl shadow-md mb-8 border border-green-100">
-
-<div class="w-full max-w-md mx-auto">
-
-<label class="block text-xs font-bold text-green-700 mb-2 uppercase">
-เลือกเวลาที่ต้องการดูข้อมูล
-</label>
-
-<select id="hourSelector"
-onchange="displayData()"
-class="w-full bg-gray-50 border border-green-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-400 text-lg font-bold">
-
-<option value="">-- กรุณาเลือกเวลา --</option>
-
-</select>
-
-</div>
-</div>
-
-
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-
-<div class="glass-card p-6 rounded-2xl shadow-sm border-t-4 border-orange-400 text-center">
-<p class="text-gray-500 text-sm">อุณหภูมิ</p>
-<h2 id="valTemp" class="text-3xl font-bold text-orange-600">-- °C</h2>
-</div>
-
-<div class="glass-card p-6 rounded-2xl shadow-sm border-t-4 border-blue-400 text-center">
-<p class="text-gray-500 text-sm">ความชื้น</p>
-<h2 id="valHum" class="text-3xl font-bold text-blue-600">-- %</h2>
-</div>
-
-<div class="glass-card p-6 rounded-2xl shadow-sm border-t-4 border-purple-400 text-center">
-<p class="text-gray-500 text-sm">VPD</p>
-<h2 id="valVPD" class="text-3xl font-bold text-purple-600">--</h2>
-</div>
-
-<div class="glass-card p-6 rounded-2xl shadow-sm border-t-4 border-teal-400 text-center">
-<p class="text-gray-500 text-sm">ปริมาณฝน</p>
-<h2 id="valRain" class="text-3xl font-bold text-teal-600">-- mm</h2>
-</div>
-
-</div>
-
-
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-<div class="glass-card p-4 rounded-2xl h-64">
-<canvas id="chartTemp"></canvas>
-</div>
-
-<div class="glass-card p-4 rounded-2xl h-64">
-<canvas id="chartHumid"></canvas>
-</div>
-
-<div class="glass-card p-4 rounded-2xl h-64">
-<canvas id="chartVpd"></canvas>
-</div>
-
-<div class="glass-card p-4 rounded-2xl h-64">
-<canvas id="chartRain"></canvas>
-</div>
-
-</div>
-
-</div>
-
-
-<script>
-
-let hourlyRecords=[];
-let charts={};
-let selectedDate="";
-
-const files=[
-"data/2023.html",
-"data/2024.html",
-"data/2025.html",
-"data/2026.html"
-];
-
-window.onload=async function(){
-
-selectedDate=localStorage.getItem("selectedTargetDate");
-
-if(!selectedDate){
-alert("กรุณาเลือกวันที่จากหน้าหลักก่อน");
-window.location.href="index.html";
-return;
-}
-
-document.getElementById("displaySelectedDate").innerText=
-"วันที่เลือก: "+selectedDate;
-
-await loadAllData();
-
-populateHourSelector();
-
-displayData();
-
-};
-
-
-
-async function loadAllData(){
-
-for(const file of files){
-
-try{
-
-const res=await fetch(file);
-const text=await res.text();
-
-parseData(text);
-
-}catch(err){
-
-console.log("โหลดไฟล์ไม่ได้:",file);
-
-}
-
-}
-
-}
-
-
-
-function parseData(content){
-
-const doc=new DOMParser().parseFromString(content,"text/html");
-
-const rows=doc.querySelectorAll("tr");
-
-rows.forEach(row=>{
-
-const td=row.querySelectorAll("td");
-
-if(td.length>=5){
-
-const fullDate=td[0].textContent.trim();
-
-if(fullDate.startsWith(selectedDate)){
-
-hourlyRecords.push({
-
-time:fullDate.split(" ")[1],
-
-temp:parseFloat(td[1].textContent)||0,
-
-vpd:parseFloat(td[2].textContent)||0,
-
-hum:parseFloat(td[3].textContent)||0,
-
-rain:parseFloat(td[4].textContent)||0
-
-});
-
-}
-
-}
-
-});
-
-}
-
-
-
-function populateHourSelector(){
-
-const selector=document.getElementById("hourSelector");
-
-const hours=hourlyRecords.map(r=>r.time).sort();
-
-selector.innerHTML=hours.map(h=>`<option value="${h}">${h}</option>`).join("");
-
-}
-
-
-
-function displayData(){
-
-const selector=document.getElementById("hourSelector");
-
-const hour=selector.value||hourlyRecords[0]?.time;
-
-const data=hourlyRecords.find(r=>r.time===hour);
-
-if(!data)return;
-
-document.getElementById("valTemp").innerText=data.temp.toFixed(1)+" °C";
-
-document.getElementById("valHum").innerText=data.hum.toFixed(1)+" %";
-
-document.getElementById("valVPD").innerText=data.vpd.toFixed(2)+" kPa";
-
-document.getElementById("valRain").innerText=data.rain.toFixed(1)+" mm";
-
-updateChart("chartTemp","Temp",data.temp);
-
-updateChart("chartHumid","Humidity",data.hum);
-
-updateChart("chartVpd","VPD",data.vpd);
-
-updateChart("chartRain","Rain",data.rain);
-
-}
-
-
-
-function updateChart(id,label,value){
-
-const ctx=document.getElementById(id).getContext("2d");
-
-if(charts[id]) charts[id].destroy();
-
-charts[id]=new Chart(ctx,{
-
-type:"bar",
-
-data:{
-labels:[label],
-datasets:[{data:[value]}]
-},
-
-options:{
-responsive:true,
-plugins:{legend:{display:false}},
-scales:{y:{beginAtZero:true}}
-}
-
-});
-
-}
-
-</script>
-
+    <div class="max-w-6xl mx-auto">
+        <header class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">🕒 ข้อมูลรายชั่วโมง</h1>
+                <p id="displaySelectedDate" class="text-lg text-blue-600 font-semibold mt-1">วันที่เลือก: กำลังโหลด...</p>
+            </div>
+            <button onclick="window.location.href='index.html'" class="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-6 rounded-lg shadow">
+                ← กลับหน้าวิเคราะห์รายวัน
+            </button>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="glass-card p-4 rounded-2xl h-80 shadow-sm">
+                <p class="text-center font-bold text-orange-600 mb-2">อุณหภูมิ (°C)</p>
+                <canvas id="chartTemp"></canvas>
+            </div>
+            <div class="glass-card p-4 rounded-2xl h-80 shadow-sm">
+                <p class="text-center font-bold text-blue-600 mb-2">ความชื้น (%)</p>
+                <canvas id="chartHumid"></canvas>
+            </div>
+            <div class="glass-card p-4 rounded-2xl h-80 shadow-sm">
+                <p class="text-center font-bold text-purple-600 mb-2">VPD (kPa)</p>
+                <canvas id="chartVpd"></canvas>
+            </div>
+            <div class="glass-card p-4 rounded-2xl h-80 shadow-sm">
+                <p class="text-center font-bold text-teal-600 mb-2">ปริมาณฝน (mm)</p>
+                <canvas id="chartRain"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let hourlyRecords = [];
+        let charts = {};
+        const selectedDate = localStorage.getItem("selectedTargetDate");
+        const files = ["data/2023.html", "data/2024.html", "data/2025.html", "data/2026.html"];
+
+        window.onload = async function() {
+            if (!selectedDate) {
+                alert("กรุณาเลือกวันที่จากหน้าหลักก่อน");
+                window.location.href = "index.html";
+                return;
+            }
+            document.getElementById("displaySelectedDate").innerText = "วันที่เลือก: " + selectedDate;
+            await loadAllData();
+            renderAllCharts();
+        };
+
+        async function loadAllData() {
+            for (const file of files) {
+                try {
+                    const res = await fetch(file);
+                    const text = await res.text();
+                    parseData(text);
+                } catch (err) { console.log("โหลดไฟล์ไม่ได้:", file); }
+            }
+            // เรียงลำดับเวลา
+            hourlyRecords.sort((a, b) => a.time.localeCompare(b.time));
+        }
+
+        function parseData(content) {
+            const doc = new DOMParser().parseFromString(content, "text/html");
+            const rows = doc.querySelectorAll("tr");
+            rows.forEach(row => {
+                const td = row.querySelectorAll("td");
+                if (td.length >= 5) {
+                    const fullDateStr = td[0].textContent.trim();
+                    if (fullDateStr.startsWith(selectedDate)) {
+                        const timePart = fullDateStr.split(" ")[1] || "00:00";
+                        hourlyRecords.push({
+                            time: timePart,
+                            temp: parseFloat(td[1].textContent) || 0,
+                            vpd: parseFloat(td[2].textContent) || 0,
+                            hum: parseFloat(td[3].textContent) || 0,
+                            rain: parseFloat(td[4].textContent) || 0
+                        });
+                    }
+                }
+            });
+        }
+
+        function renderAllCharts() {
+            if (hourlyRecords.length === 0) { return; }
+            const labels = hourlyRecords.map(r => r.time);
+            
+            createChart("chartTemp", "Temp", labels, hourlyRecords.map(r => r.temp), "#f97316", "line");
+            createChart("chartHumid", "Humid", labels, hourlyRecords.map(r => r.hum), "#3b82f6", "line");
+            createChart("chartVpd", "VPD", labels, hourlyRecords.map(r => r.vpd), "#a855f7", "line");
+            createChart("chartRain", "Rain", labels, hourlyRecords.map(r => r.rain), "#14b8a6", "bar");
+        }
+
+        function createChart(id, label, labels, data, color, type) {
+            const ctx = document.getElementById(id).getContext("2d");
+            if (charts[id]) charts[id].destroy();
+            charts[id] = new Chart(ctx, {
+                type: type,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        borderColor: color,
+                        backgroundColor: color + "33",
+                        fill: (type === 'line'),
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+    </script>
 </body>
 </html>
