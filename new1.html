@@ -3,134 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weather Hourly Dashboard</title>
+    <title>Hourly Details</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Sarabun', sans-serif; background: #f8fafc; }
-        .chart-container { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border: 1px solid #e2e8f0; height: 350px; }
+        body { background: #f8fafc; font-family: sans-serif; }
+        .chart-box { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); height: 300px; }
     </style>
 </head>
 <body class="p-6">
-    <div class="max-w-6xl mx-auto">
-        <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-            <div>
-                <h1 class="text-3xl font-bold text-slate-800">🕒 ข้อมูลรายชั่วโมง</h1>
-                <p id="displayDate" class="text-blue-600 font-semibold text-xl">วันที่เลือก: กำลังโหลด...</p>
-            </div>
-            <button onclick="window.location.href='index.html'" class="bg-slate-800 text-white px-6 py-2 rounded-lg hover:bg-slate-700 transition">
-                ← กลับหน้าหลัก
-            </button>
+    <div class="max-w-5xl mx-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h1 id="title" class="text-2xl font-bold text-slate-800">ข้อมูลรายชั่วโมง</h1>
+            <button onclick="window.location.href='index.html'" class="bg-slate-800 text-white px-4 py-2 rounded-lg">กลับหน้าหลัก</button>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="chart-container">
-                <h3 class="font-bold text-orange-600 mb-2">แนวโน้มอุณหภูมิ (°C)</h3>
-                <canvas id="chartTemp"></canvas>
+            <div class="chart-box">
+                <p class="text-center font-bold text-orange-600">อุณหภูมิ (°C)</p>
+                <canvas id="cTemp"></canvas>
             </div>
-            <div class="chart-container">
-                <h3 class="font-bold text-blue-600 mb-2">แนวโน้มความชื้น (%)</h3>
-                <canvas id="chartHumid"></canvas>
+            <div class="chart-box">
+                <p class="text-center font-bold text-blue-600">ความชื้น (%)</p>
+                <canvas id="cHum"></canvas>
             </div>
-            <div class="chart-container">
-                <h3 class="font-bold text-purple-600 mb-2">แนวโน้ม VPD (kPa)</h3>
-                <canvas id="chartVpd"></canvas>
+            <div class="chart-box">
+                <p class="text-center font-bold text-purple-600">VPD (kPa)</p>
+                <canvas id="cVpd"></canvas>
             </div>
-            <div class="chart-container">
-                <h3 class="font-bold text-teal-600 mb-2">ปริมาณฝนสะสม (mm)</h3>
-                <canvas id="chartRain"></canvas>
+            <div class="chart-box">
+                <p class="text-center font-bold text-teal-600">ปริมาณฝน (mm)</p>
+                <canvas id="cRain"></canvas>
             </div>
         </div>
     </div>
 
     <script>
-        let hourlyData = [];
-        let charts = {};
-        const selectedDate = localStorage.getItem("selectedTargetDate");
+        const date = localStorage.getItem("selectedTargetDate");
         const files = ["data/2023.html", "data/2024.html", "data/2025.html", "data/2026.html"];
+        let hourlyRecords = [];
 
         window.onload = async function() {
-            if (!selectedDate) {
-                alert("กรุณาเลือกวันที่จากหน้าหลัก");
-                window.location.href = "index.html";
-                return;
-            }
-            document.getElementById("displayDate").innerText = "ข้อมูลวันที่: " + selectedDate;
-            await loadHourlyData();
-            renderCharts();
-        };
+            if (!date) { window.location.href = "index.html"; return; }
+            document.getElementById("title").innerText = "ข้อมูลรายชั่วโมง: " + date;
 
-        async function loadHourlyData() {
             for (const file of files) {
                 try {
                     const res = await fetch(file);
-                    if (!res.ok) continue;
                     const text = await res.text();
                     const doc = new DOMParser().parseFromString(text, "text/html");
-                    const rows = doc.querySelectorAll("tr");
-                    
-                    rows.forEach(row => {
-                        const td = row.querySelectorAll("td");
-                        if (td.length >= 5) {
-                            const fullStr = td[0].textContent.trim();
-                            if (fullStr.startsWith(selectedDate)) {
-                                const time = fullStr.split(" ")[1] || "00:00";
-                                hourlyData.push({
-                                    time: time,
-                                    temp: parseFloat(td[1].textContent) || 0,
-                                    vpd: parseFloat(td[2].textContent) || 0,
-                                    hum: parseFloat(td[3].textContent) || 0,
-                                    rain: parseFloat(td[4].textContent) || 0
-                                });
-                            }
+                    doc.querySelectorAll("tr").forEach(tr => {
+                        const td = tr.querySelectorAll("td");
+                        if (td.length >= 5 && td[0].textContent.includes(date)) {
+                            hourlyRecords.push({
+                                time: td[0].textContent.split(" ")[1] || "00:00",
+                                temp: parseFloat(td[1].textContent) || 0,
+                                vpd: parseFloat(td[2].textContent) || 0,
+                                hum: parseFloat(td[3].textContent) || 0,
+                                rain: parseFloat(td[4].textContent) || 0
+                            });
                         }
                     });
-                } catch (e) { console.error("Error:", file); }
-            }
-            // เรียงลำดับตามเวลา
-            hourlyData.sort((a, b) => a.time.localeCompare(b.time));
-        }
-
-        function renderCharts() {
-            if (hourlyData.length === 0) {
-                alert("ไม่พบข้อมูลรายชั่วโมงของวันที่เลือกในฐานข้อมูล");
-                return;
+                } catch (e) {}
             }
 
-            const times = hourlyData.map(d => d.time);
-            
-            createChart("chartTemp", "อุณหภูมิ", times, hourlyData.map(d => d.temp), "#f97316", "line");
-            createChart("chartHumid", "ความชื้น", times, hourlyData.map(d => d.hum), "#3b82f6", "line");
-            createChart("chartVpd", "VPD", times, hourlyData.map(d => d.vpd), "#a855f7", "line");
-            createChart("chartRain", "ปริมาณฝน", times, hourlyData.map(d => d.rain), "#14b8a6", "bar");
+            hourlyRecords.sort((a, b) => a.time.localeCompare(b.time));
+            renderAll();
+        };
+
+        function renderAll() {
+            const labels = hourlyRecords.map(r => r.time);
+            draw("cTemp", labels, hourlyRecords.map(r => r.temp), "#f97316", "line");
+            draw("cHum", labels, hourlyRecords.map(r => r.hum), "#3b82f6", "line");
+            draw("cVpd", labels, hourlyRecords.map(r => r.vpd), "#a855f7", "line");
+            draw("cRain", labels, hourlyRecords.map(r => r.rain), "#14b8a6", "bar");
         }
 
-        function createChart(id, label, labels, data, color, type) {
-            const ctx = document.getElementById(id).getContext("2d");
-            charts[id] = new Chart(ctx, {
+        function draw(id, labels, data, color, type) {
+            new Chart(document.getElementById(id), {
                 type: type,
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: label,
                         data: data,
                         borderColor: color,
                         backgroundColor: color + "20",
-                        fill: (type === 'line'),
-                        tension: 0.4,
-                        pointRadius: 3
+                        fill: true,
+                        tension: 0.3
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { beginAtZero: false, grid: { color: "#f1f5f9" } },
-                        x: { grid: { display: false } }
-                    }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
         }
     </script>
